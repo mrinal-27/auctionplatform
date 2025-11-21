@@ -1,46 +1,76 @@
-import React, { useState } from "react";
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
-import Signup from "./Signup";
-import Signin from "./Signin";
-import Dashboard from "./Dashboard";
-import PostAuction from "./PostAuction";
-import Cart from "./Cart";
+import { Routes, Route, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import LandingPage from "./pages/LandingPage";
+import Auth from "./pages/Auth";
+import Dashboard from "./pages/Dashboard";
+import PostAuction from "./pages/PostAuction";
+import Watchlist from "./pages/Watchlist";
+import API from "./api";
 
-const App = () => {
-  const [auctions, setAuctions] = useState([
-    { id: 1, title: "iPhone 14 Pro", description: "Brand new, 128GB", price: 58000, image: "/images/iphone 14 pro.jpeg" },
-    { id: 2, title: "Gaming Laptop", description: "RTX 3060, 16GB RAM", price: 99999, image: "/images/Gaming Laptop.jpeg" },
-  ]);
+function App() {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
 
-  const addAuction = (newAuction) => {
-    setAuctions([...auctions, { ...newAuction, id: auctions.length + 1 }]);
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setLoadingUser(false);
+      return;
+    }
+
+    API.get("/auth/me")
+      .then(res => {
+        const u = res.data.user;
+        setUser({
+          id: u._id,
+          name: u.name,
+          email: u.email
+        });
+      })
+      .catch(() => localStorage.removeItem("token"))
+      .finally(() => setLoadingUser(false));
+  }, []);
+
+  const handleAuth = (u, token) => {
+    localStorage.setItem("token", token);
+
+    setUser({
+      id: u._id,
+      name: u.name,
+      email: u.email
+    });
+
+    navigate("/dashboard");
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    setUser(null);
+    navigate("/auth");
+  };
+
+  if (loadingUser) return <p>Loading...</p>;
+
   return (
-    <Router>
-      <div className="navbar">
-        <h1>Auction App</h1>
-        <nav>
-          <ul>
-            <li><Link to="/signup">Signup</Link></li>
-            <li><Link to="/signin">Signin</Link></li>
-            <li><Link to="/dashboard">Dashboard</Link></li>
-            <li><Link to="/post-auction">Post Auction</Link></li>
-            <li><Link to="/cart">Cart</Link></li>
-          </ul>
-        </nav>
-      </div>
-      <p>Every Thing You Desire</p>
-      
-      <Routes>
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/signin" element={<Signin />} />
-        <Route path="/dashboard" element={<Dashboard auctions={auctions} />} />
-        <Route path="/post-auction" element={<PostAuction addAuction={addAuction} />} />
-        <Route path="/cart" element={<Cart />} />
-      </Routes>
-    </Router>
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+
+      <Route path="/auth" element={<Auth onAuth={handleAuth} />} />
+
+      <Route path="/dashboard"
+        element={<Dashboard user={user} onLogout={handleLogout} />}
+      />
+
+      <Route path="/post-auction"
+        element={<PostAuction user={user} />}
+      />
+
+      <Route path="/watchlist"
+        element={<Watchlist user={user} />}
+      />
+    </Routes>
   );
-};
+}
 
 export default App;
