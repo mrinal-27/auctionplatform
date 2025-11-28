@@ -1,4 +1,3 @@
-// frontend/src/pages/Dashboard.jsx
 import React, { useEffect, useState } from 'react';
 import API from '../api';
 import MinimalModal from '../components/MinimalModal';
@@ -7,177 +6,216 @@ import { Link } from 'react-router-dom';
 
 export default function Dashboard({ user, onLogout }) {
   const [auctions, setAuctions] = useState([]);
+  const [modal, setModal] = useState(null);
   const [view, setView] = useState('buy');
-  const [modal, setModal] = useState(null); // bidding modal {auction}
   const [bidValue, setBidValue] = useState('');
-  const [paymentAuction, setPaymentAuction] = useState(null); // for buy
+  const [paymentAuction, setPaymentAuction] = useState(null);
 
   const fetchAuctions = async () => {
     try {
       const { data } = await API.get('/auctions');
       setAuctions(data);
-      // if any auction is sold and the current user is the winner, add to watchlist
-      if (user) {
-        const existing = JSON.parse(localStorage.getItem('watchlist') || '[]');
-        let changed = false;
-        data.forEach(a => {
-          if (a.sold && a.winner && a.winner._id === user.id) {
-            if (!existing.find(it => it._id === a._id)) {
-              existing.push(a);
-              changed = true;
-            }
-          }
-        });
-        if (changed) localStorage.setItem('watchlist', JSON.stringify(existing));
-      }
-    } catch (err) {
-      console.error(err);
-    }
+    } catch {}
   };
 
   useEffect(() => {
-  fetchAuctions(); 
-
-  const t = setInterval(() => {
     fetchAuctions();
-  }, 10000);
+    const t = setInterval(fetchAuctions, 10000);
+    return () => clearInterval(t);
+  }, []);
 
-  return () => clearInterval(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
-
-
-  const openBid = (a) => { setModal(a); setBidValue(''); };
+  const openBid = (a) => {
+    setModal(a);
+    setBidValue('');
+  };
 
   const placeBid = async () => {
     if (!modal) return;
-    const min = modal.currentPrice || modal.startingPrice || 0;
+    const min = modal.currentPrice || modal.startingPrice;
     const amount = Number(bidValue);
-    if (!amount || isNaN(amount) || amount <= min) {
-      alert('Enter an amount higher than current bid.');
-      return;
-    }
+
+    if (amount <= min) return alert("Bid must be higher.");
+
     try {
       await API.post(`/auctions/${modal._id}/bid`, { amount });
       setModal(null);
       fetchAuctions();
-    } catch (err) { alert(err.response?.data?.message || 'Bid failed'); }
-  };
-
-  const openBuy = (a) => {
-    setPaymentAuction(a);
-  };
-
-  const handlePaymentSuccess = async (auctionId) => {
-    try {
-      await API.post(`/auctions/${auctionId}/buy`);
-      alert('Payment successful. Purchase confirmed.');
-      setPaymentAuction(null);
-      fetchAuctions();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Payment failed');
+    } catch {
+      alert("Bid failed.");
     }
   };
 
-  const renderCountdown = (endsAt) => {
-    if (!endsAt) return null;
-    const end = new Date(endsAt);
-    const diff = end - new Date();
-    if (diff <= 0) return <div className="tiny muted">Ended</div>;
-    const sec = Math.floor(diff / 1000) % 60;
-    const min = Math.floor(diff / 1000 / 60) % 60;
-    const hrs = Math.floor(diff / 1000 / 60 / 60);
-    return <div className="tiny muted">Ends in {hrs}h {min}m {sec}s</div>;
-  };
-
   return (
-    <div>
-      <div className="topbar">
-        <div className="brand-left">Minimal Auction</div>
+    <div className="min-h-screen bg-gray-50">
+      
+      {/* NAV */}
+      <header className="flex justify-between items-center px-10 py-5 shadow-sm bg-white">
+        <h2 className="text-2xl font-bold text-indigo-600">Minimal Auction</h2>
 
-        <div className="top-actions">
-          {user ? <span className="user">{user.name}</span> : null}
-          <button className="ghost" onClick={() => setView(v => v === 'buy' ? 'sell' : 'buy')}> {view === 'buy' ? 'Sell' : 'Buy'} </button>
+        <div className="flex gap-4 items-center">
+          <span className="font-medium text-gray-700">👋 Hey, {user?.name}</span>
 
-          <Link to="/watchlist" className="ghost">Watchlist</Link>
+          <button 
+            onClick={() => setView(view === "buy" ? "sell" : "buy")}
+            className="px-4 py-2 rounded-lg border hover:bg-gray-200 transition"
+          >
+            {view === "buy" ? "Switch to Sell" : "Switch to Buy"}
+          </button>
 
-          <button className="ghost" onClick={onLogout}>Logout</button>
+          <Link 
+            to="/watchlist"
+            className="px-4 py-2 rounded-lg border hover:bg-gray-200 transition"
+          >
+            Watchlist
+          </Link>
+
+          <button 
+            onClick={onLogout}
+            className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
+          >
+            Logout
+          </button>
         </div>
-      </div>
+      </header>
 
-      <div className="container">
-        {view === 'buy' ? (
+
+      {/* HERO GREETING */}
+      <section className="text-center py-12">
+        <div className="relative inline-block">
+          <div className="absolute -inset-10 bg-purple-200 opacity-40 blur-3xl rounded-full"></div>
+
+          <h1 className="relative text-4xl font-extrabold text-gray-800">
+            Welcome back, <span className="text-indigo-600">{user?.name}</span> 👋
+          </h1>
+        </div>
+
+        <p className="text-gray-600 mt-2">
+          Explore auctions, bid live, or sell something today.
+        </p>
+      </section>
+
+
+      {/* CONTENT SECTION */}
+      <div className="max-w-6xl mx-auto px-6">
+
+        {/* BUY / SELL MODE */}
+        {view === "buy" ? (
           <>
-            <h2>Live auctions</h2>
-            <p className="muted">Place bids, watch items, win auctions.</p>
+            <h3 className="text-xl font-semibold text-gray-800 mb-6">
+              Live Auctions
+            </h3>
 
-            <div className="auction-grid">
+            {/* Cards Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
               {auctions.map(a => (
-                <div key={a._id} className="auction-card">
-                  <img src={a.image || '/mnt/data/a883b3bf-3103-4a6c-9e04-d591524449d7.png'} alt={a.title} className="product-image" />
+                <div key={a._id} className="bg-white p-5 rounded-2xl shadow hover:shadow-xl transition">
 
-                  <div className="product-details">
-                    <h3>{a.title}</h3>
-                    <p className="product-desc">{a.description}</p>
-                    <p className="product-price">₹{(a.currentPrice || a.startingPrice).toLocaleString('en-IN')}</p>
-                    {renderCountdown(a.endsAt)}
-                    <p className="tiny muted">Seller: {a.seller?.name || 'Seller'}</p>
-                    {a.sold && a.winner && <p className="tiny muted">Winner: {a.winner.name}</p>}
-                    {a.purchased && <p className="tiny muted">Status: Purchased</p>}
-                  </div>
+                  <img 
+                    src={a.image} 
+                    alt={a.title}
+                    className="h-44 w-full object-cover rounded-xl"
+                  />
 
-                  <div className="buttons">
-                    {/* If auction finished and current user is winner and not purchased => show Buy */}
-                    {a.sold && user && a.winner && user.id === a.winner._id && !a.purchased ? (
-                      <button className="buy-now" onClick={() => openBuy(a)}>Buy</button>
+                  <h3 className="mt-3 text-lg font-bold text-gray-900">{a.title}</h3>
+
+                  <p className="text-sm text-gray-600 line-clamp-2">
+                    {a.description}
+                  </p>
+
+                  <p className="text-indigo-600 font-bold text-lg mt-2">
+                    ₹ {(a.currentPrice || a.startingPrice)}
+                  </p>
+
+                  <div className="flex gap-3 mt-4">
+                    {!a.sold ? (
+                      <button 
+                        className="flex-1 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition"
+                        onClick={() => openBid(a)}
+                      >
+                        Bid
+                      </button>
                     ) : (
-                      // If auction still running -> allow bid
-                      !a.sold && <button className="buy-now" onClick={() => openBid(a)}>Place Bid</button>
+                      a.winner && a.winner._id === user?.id && (
+                        <button
+                          className="flex-1 px-4 py-2 rounded-lg bg-purple-500 text-white hover:bg-purple-600 transition"
+                          onClick={() => setPaymentAuction(a)}
+                        >
+                          Buy Now
+                        </button>
+                      )
                     )}
-                    
 
-                    <button className="add-to-cart" onClick={() => {
-                      const existing = JSON.parse(localStorage.getItem('watchlist')||'[]');
-                      if (!existing.find(it => it._id === a._id)) {
-                        existing.push(a);
-                        localStorage.setItem('watchlist', JSON.stringify(existing));
-                        alert('Added to watchlist');
-                      } else alert('Already in watchlist');
-                    }}>Watch</button>
+                    <button
+                      className="flex-1 px-4 py-2 rounded-lg border hover:bg-gray-100 transition"
+                      onClick={() => {
+                        const saved = JSON.parse(localStorage.getItem("watchlist") || "[]");
+                        if (!saved.find(i => i._id === a._id)) {
+                          saved.push(a);
+                          localStorage.setItem("watchlist", JSON.stringify(saved));
+                          alert("Added to watchlist");
+                        }
+                      }}
+                    >
+                      Watch
+                    </button>
                   </div>
                 </div>
               ))}
+
             </div>
           </>
+
         ) : (
-          <div className="sell-panel">
-            <h2>Sell</h2>
-            <p className="muted">Create a new auction listing.</p>
-            <br></br>
-            <Link to="/post-auction" className="primary">Post Auction</Link>
+          <div className="text-center py-20">
+            <h3 className="text-xl font-semibold mb-4">Want to Sell?</h3>
+            <Link 
+              to="/post-auction"
+              className="px-5 py-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition"
+            >
+              Create Auction Listing
+            </Link>
           </div>
         )}
       </div>
 
-      {/* Bid modal */}
+      {/* BID MODAL */}
       {modal && (
         <MinimalModal onClose={() => setModal(null)}>
-          <h3>Bid for {modal.title}</h3>
-          <p className="muted">Current: ₹{(modal.currentPrice || modal.startingPrice).toLocaleString('en-IN')}</p>
-          <input type="number" placeholder="Enter bid amount" value={bidValue} onChange={(e) => setBidValue(e.target.value)} />
-          <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:12}}>
-            <button className="ghost" onClick={() => setModal(null)}>Cancel</button>
-            <button className="primary" onClick={placeBid}>Confirm</button>
+          <h2 className="text-xl font-semibold mb-3">Place a bid on: {modal.title}</h2>
+
+          <input
+            type="number"
+            placeholder="Enter bid amount"
+            value={bidValue}
+            onChange={(e) => setBidValue(e.target.value)}
+            className="input w-full"
+          />
+
+          <div className="flex justify-end gap-3 mt-5">
+            <button
+              onClick={() => setModal(null)}
+              className="px-4 py-2 rounded-lg border hover:bg-gray-100 transition"
+            >
+              Cancel
+            </button>
+
+            <button
+              onClick={placeBid}
+              className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition"
+            >
+              Confirm Bid
+            </button>
           </div>
         </MinimalModal>
       )}
 
-      {/* Payment modal */}
+      {/* PAYMENT MODAL */}
       {paymentAuction && (
         <PaymentModal
           auction={paymentAuction}
           onClose={() => setPaymentAuction(null)}
-          onSuccess={() => handlePaymentSuccess(paymentAuction._id)}
+          onSuccess={() => alert("Payment Successful")}
         />
       )}
     </div>

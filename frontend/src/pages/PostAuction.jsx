@@ -15,20 +15,19 @@ export default function PostAuction({ user }) {
 
   if (!user) {
     return (
-      <div className="container">
-        <p>Please sign in to post an auction.</p>
+      <div className="max-w-xl mx-auto mt-10 text-center p-5 bg-white shadow-md rounded-xl">
+        <p className="text-gray-600 font-medium">Please sign in to post an auction.</p>
       </div>
     );
   }
 
-  // Convert image to base64
   const handleFile = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      setForm({ ...form, image: reader.result }); // Base64 saved here
+      setForm({ ...form, image: reader.result });
     };
     reader.readAsDataURL(file);
   };
@@ -36,88 +35,102 @@ export default function PostAuction({ user }) {
   const submit = async (e) => {
     e.preventDefault();
     setLoading(true);
+
     try {
       await API.post("/auctions", {
         title: form.title,
         description: form.description,
-        image: form.image,     // base64 stored in DB
+        image: form.image,
         startingPrice: Number(form.startingPrice),
         endsAt: form.endsAt
       });
 
-      alert("Auction posted");
+      alert("Auction posted successfully!");
       navigate("/dashboard");
     } catch (err) {
-      console.error(err);
-      alert(err.response?.data?.message || "Failed to create auction");
+      alert("Failed to create auction.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="container" style={{ maxWidth: 700 }}>
-      <div style={{ display: "flex", justifyContent: "center" }}>
-        <div style={{ width: "100%", maxWidth: 500 }}>
-          <h2>Create Auction</h2>
+    <div className="max-w-xl mx-auto mt-10 px-4">
+      <h2 className="text-2xl font-semibold text-center text-indigo-600 mb-4">
+        Create Auction
+      </h2>
 
-          <form className="post-form" onSubmit={submit}>
-            <input
-              required
-              placeholder="Title"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-            />
+      {/* FORM */}
+      <form onSubmit={submit} className="bg-white shadow-md rounded-xl p-6 space-y-4">
 
-            <textarea
-              required
-              placeholder="Description"
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-            />
+        <input
+          required
+          value={form.title}
+          placeholder="Title"
+          onChange={(e) => setForm({ ...form, title: e.target.value })}
+          className="input w-full"
+        />
 
-            <input
-              required
-              type="number"
-              placeholder="Starting Price (₹)"
-              value={form.startingPrice}
-              onChange={(e) => setForm({ ...form, startingPrice: e.target.value })}
-            />
+        <textarea
+          required
+          placeholder="Description"
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+          className="input w-full h-28 resize-none"
+        />
 
-            <label style={{ fontSize: 14, color: "#666" }}>Auction deadline</label>
+        <input
+          required
+          type="number"
+          placeholder="Starting Price (₹)"
+          value={form.startingPrice}
+          onChange={(e) => setForm({ ...form, startingPrice: e.target.value })}
+          className="input w-full"
+        />
 
-            <input
-              required
-              type="datetime-local"
-              value={form.endsAt}
-              onChange={(e) => setForm({ ...form, endsAt: e.target.value })}
-            />
+        <label className="text-sm text-gray-600 block">Auction Deadline</label>
+        <input
+          required
+          type="datetime-local"
+          value={form.endsAt}
+          onChange={(e) => setForm({ ...form, endsAt: e.target.value })}
+          className="input w-full"
+        />
 
-            <input type="file" accept="image/*" onChange={handleFile} />
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleFile}
+          className="block w-full text-sm text-gray-500"
+        />
 
-            {form.image && (
-              <img
-                src={form.image}
-                alt="preview"
-                style={{ width: 220, borderRadius: 8 }}
-              />
-            )}
+        {form.image && (
+          <img
+            src={form.image}
+            alt="preview"
+            className="w-40 rounded-lg mt-2 shadow-md"
+          />
+        )}
 
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button className="primary" type="submit" disabled={loading}>
-                {loading ? "Posting..." : "Post Auction"}
-              </button>
-              <button
-                type="button"
-                className="ghost"
-                onClick={() => navigate("/dashboard")}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+        <div className="flex gap-3 pt-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-primary flex-1"
+          >
+            {loading ? "Posting..." : "Post Auction"}
+          </button>
+
+          <button
+            type="button"
+            className="btn-secondary flex-1"
+            onClick={() => navigate("/dashboard")}
+          >
+            Cancel
+          </button>
         </div>
-      </div>
+
+      </form>
     </div>
   );
 }
